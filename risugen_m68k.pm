@@ -232,6 +232,7 @@ sub gen_one_insn($$)
         my $fixedbits = $rec->{fixedbits};
         my $fixedbitmask = $rec->{fixedbitmask};
         my $constraint = $rec->{blocks}{"constraints"};
+        my $post = $rec->{blocks}{"post"};
         my $memblock = $rec->{blocks}{"memory"};
 
         $insn &= ~$fixedbitmask;
@@ -257,6 +258,9 @@ sub gen_one_insn($$)
         insn16($insn >> 16);
         if ($insnwidth == 32) {
             insn16($insn & 0xffff);
+        }
+        if (defined $post) {
+            eval_with_fields($insnname, $insn, $rec, "post", $post);
         }
 
         return;
