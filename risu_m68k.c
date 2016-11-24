@@ -13,7 +13,7 @@
 #include "risu.h"
 #include "risu_reginfo_m68k.h"
 
-struct reginfo master_ri, apprentice_ri;
+struct reginfo master_ri, apprentice_ri, previous_ri;
 static int mem_used = 0;
 static int packet_mismatch = 0;
 
@@ -37,6 +37,11 @@ static int get_risuop(uint32_t insn)
     uint32_t key = insn & ~0xf;
     uint32_t risukey = 0x4afc7000;
     return (key != risukey) ? -1 : op;
+}
+
+void save_ri(void)
+{
+    memcpy(&previous_ri, &master_ri, sizeof(master_ri));
 }
 
 int send_register_info(int sock, void *uc)
@@ -147,6 +152,9 @@ int report_match_status(void)
 
     fprintf(stderr, "apprentice reginfo:\n");
     reginfo_dump(&apprentice_ri, 0);
+
+    fprintf(stderr, "previous reginfo:\n");
+    reginfo_dump(&previous_ri, 0);
 
     reginfo_dump_mismatch(&master_ri, &apprentice_ri, stderr);
     return resp;

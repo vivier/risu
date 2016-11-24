@@ -39,6 +39,8 @@ extern int test_fp_exc;
 
 /* Interface provided by CPU-specific code: */
 
+void save_ri(void);
+
 /* Send the register information from the struct ucontext down the socket.
  * Return the response code from the master.
  * NB: called from a signal handler.

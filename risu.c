@@ -43,6 +43,7 @@ void master_sigill(int sig, siginfo_t *si, void *uc)
    {
       case 0:
          /* match OK */
+         save_ri();
          advance_pc(uc);
          return;
       default:
