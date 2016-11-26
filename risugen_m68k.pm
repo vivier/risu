@@ -104,6 +104,13 @@ sub write_mov_ri($$)
     }
 }
 
+sub write_exg_aa($$)
+{
+    my ($reg0, $reg1) = @_;
+
+    insn16(0xc148 | ($reg0 << 9) | $reg1);
+}
+
 # write random fp value of passed precision (1=single, 2=double, 3=extended)
 sub write_random_fpreg_var($)
 {
@@ -180,9 +187,10 @@ sub write_random_regdata()
 
 my $OP_COMPARE = 0;        # compare registers
 my $OP_TESTEND = 1;        # end of test, stop
-my $OP_SETMEMBLOCK = 2;    # r0 is address of memory block (8192 bytes)
-my $OP_GETMEMBLOCK = 3;    # add the address of memory block to r0
+my $OP_SETMEMBLOCK = 2;    # a0 is address of memory block (8192 bytes)
+my $OP_GETMEMBLOCK = 3;    # add the address of memory block to a0
 my $OP_COMPAREMEM = 4;     # compare memory block
+my $OP_NORMALIZE = 5;      # normalize a0 between master and apprentice
 
 sub write_random_register_data($)
 {
@@ -195,6 +203,73 @@ sub write_random_register_data($)
 
     write_random_regdata();
     write_risuop($OP_COMPARE);
+}
+
+sub write_pc_addr($$)
+{
+    my ($ad, $imm) = @_;
+
+    # lea (pc)len, Ad
+
+    insn16(0x41fa | ($ad << 9));
+    insn16($imm + 2);
+}
+
+sub write_jmp_fwd($)
+{
+    my ($len) = @_;
+
+    # bra (pc)len
+    insn16(0x6000);
+    insn16($len + 2);
+}
+
+sub write_memblock_setup()
+{
+    my $datalen = 8192;
+
+    write_pc_addr(0, 8);
+    write_risuop($OP_SETMEMBLOCK); # 4 bytes
+    write_jmp_fwd($datalen);       # 4 bytes
+    for (my $i = 0; $i < $datalen / 2; $i++) {
+        insn16(rand(0x10000));
+    }
+}
+
+sub write_get_offset()
+{
+    my $offset = (rand(2048 - 256) + 128) & ~1;
+    write_mov_ai(0, $offset);
+    write_risuop($OP_GETMEMBLOCK);
+}
+
+my @basereg;
+
+sub reg($)
+{
+    my ($reg) = @_;
+
+    if ($reg != 0) {
+        write_exg_aa($reg, 0);
+        write_get_offset();
+        write_exg_aa(0, $reg);
+    } else {
+        write_get_offset();
+    }
+    push @basereg, $reg;
+}
+
+sub normalize($)
+{
+    my ($reg) = @_;
+
+    if ($reg != 0) {
+        write_exg_aa($reg, 0);
+        write_risuop($OP_NORMALIZE);
+        write_exg_aa(0, $reg);
+    } else {
+        write_risuop($OP_NORMALIZE);
+    }
 }
 
 sub eval_with_fields($$$$$) {
@@ -255,6 +330,10 @@ sub gen_one_insn($$)
         # OK, we got a good one
         $constraintfailures = 0;
 
+
+        if (defined $memblock) {
+            eval_with_fields($insnname, $insn, $rec, "memory", $memblock);
+        }
         insn16($insn >> 16);
         if ($insnwidth == 32) {
             insn16($insn & 0xffff);
@@ -262,7 +341,19 @@ sub gen_one_insn($$)
         if (defined $post) {
             eval_with_fields($insnname, $insn, $rec, "post", $post);
         }
-
+        if (defined $memblock) {
+            my $r0;
+            $r0 = pop @basereg;
+            if (defined $r0) {
+                my $r1;
+                normalize($r0);
+                $r1 = pop @basereg;
+                if (defined $r1 && $r1 != $r0) {
+                    normalize($r1);
+                }
+            }
+            write_risuop($OP_COMPAREMEM);
+        }
         return;
     }
 }

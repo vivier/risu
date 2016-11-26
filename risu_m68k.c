@@ -65,6 +65,8 @@ int send_register_info(int sock, void *uc)
         break;
     case OP_COMPAREMEM:
         return send_data_pkt(sock, memblock, MEMBLOCKLEN);
+    case OP_NORMALIZE:
+        set_a0(uc, ri.gregs[R_A0] - (uintptr_t)memblock);
         break;
     }
     return 0;
@@ -112,6 +114,9 @@ int recv_and_compare_register_info(int sock, void *uc)
             resp = 2;
         }
         send_response_byte(sock, resp);
+        break;
+    case OP_NORMALIZE:
+        set_a0(uc, master_ri.gregs[R_A0] - (uintptr_t)memblock);
         break;
     }
     return resp;

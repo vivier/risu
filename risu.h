@@ -33,6 +33,7 @@ extern int test_fp_exc;
 #define OP_SETMEMBLOCK 2
 #define OP_GETMEMBLOCK 3
 #define OP_COMPAREMEM 4
+#define OP_NORMALIZE 5
 
 /* The memory block should be this long */
 #define MEMBLOCKLEN 8192

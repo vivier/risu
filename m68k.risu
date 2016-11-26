@@ -18,6 +18,10 @@ ABCD  M68000 1100 Dx:3 10000 0 Dy:3 \
 # add $dx,$dy
 ADD   M68000 1101 Dx:3 0 opmode:2 000 Dy:3 \
                  !constraints { $opmode != 0b11; }
+ADDm  M68000 1101 Dx:3 opmode:3 010 Ay:3 \
+                 !constraints { $Ay != 6 && $Ay != 7 && \
+                                ($opmode & 0b11) != 0b11; } \
+                 !memory { reg($Ay); }
 # adda $dx, $ay
 ADDA  M68000 1101 Ax:3 size:1 11 000 Dy:3 \
                  !constraints { $Ax != 6 && $Ax != 7; }
@@ -32,6 +36,10 @@ ADDQ  M68000 0101 imm:3 0 size:2 000 Dx:3 \
 # addx $dx,$dy
 ADDX  M68000 1101 Dx:3 1 size:2 00 0 Dy:3 \
                  !constraints { $size != 0b11; }
+ADDXm M68000 1101 Ax:3 1 size:2 00 1 Ay:3 \
+                 !constraints { $size != 0b11 && $Ax != 6 && $Ax != 7 && \
+                                $Ay != 6 && $Ay != 7; } \
+                 !memory { reg($Ax); reg($Ay); } \
 # and $dx, $dy
 AND   M68000 1100 Dx:3 0 opmode:2 000 Dy:3 \
                  !constraints { $opmode != 0b11; }
@@ -42,42 +50,84 @@ ANDIL M68000 00000010 10 000 Dx:3 \
                  !post { insn32(rand(0xffffffff)); }
 # andi #imm,ccr
 ANDICCR M68000 0000001000111100 data:16 \
-                 !constraints { write_mov_ccr(rand(0x100)); }
+                 !constraints { write_mov_ccr(rand(0x100)); 1; }
 # asl/asr $dx,$dy , asl/asr #im3,$r
 ASx   M68000 1110 count:3 d:1 size:2 i:1 00 r:3 \
                  !constraints { $size != 0b11; }
 # bchg $dx,$dy
 BCHG  M68000 0000 Dx:3 101 000 Dy:3
 BCHGI M68000 0000 100  001 000 Dx:3 0000000 data:9
+BCHGm M68000 0000 Dx:3 101 010 Ay:3 \
+                 !constraints { $Ay != 6 && $Ay != 7; } \
+                 !memory { reg($Ay); }
 # blcr $dx,$dy
 BCLR  M68000 0000 Dx:3 110 000 Dy:3
 BCLRI M68000 0000 100  010 000 Dx:3 0000000 data:9
+BCLRm M68000 0000 Dx:3 110 010 Ay:3 \
+                 !constraints { $Ay != 6 && $Ay != 7; } \
+                 !memory { reg($Ay); }
 # bfchg $dx,offset:width
 BFCHG M68020 1110101011 000 Dx:3 0000 Do:1 offset:5 Dw:1 width:5 \
-                !constraints { if ($Do == 1) { $offset &= 0x7; } \
-                               if ($Dw == 1) { $width &= 0x7; }  \
-                               1;                                \
+                !constraints { (!$Do || $offset < 8) &&          \
+                               (!$Dw || $width < 8);             \
                              }
+BFCHGm M68020 1110101011 010 Ax:3 0000 Do:1 offset:5 Dw:1 width:5 \
+                !constraints { (!$Do || $offset < 8) &&          \
+                               (!$Dw || $width < 8) &&           \
+                               $Ax != 6 && $Ax != 7;             \
+                             }                                   \
+                !memory { if ($Do) {                             \
+                              write_mov_di($offset, rand(2048) - 1024); \
+                          }                                             \
+                          reg($Ax);                                     \
+                        }
 # bfclr $dx,offset:width
 BFCLR M68020 1110110011 000 Dx:3 0000 Do:1 offset:5 Dw:1 width:5 \
-                !constraints { if ($Do == 1) { $offset &= 0x7; } \
-                               if ($Dw == 1) { $width &= 0x7; }  \
-                               1;                                \
+                !constraints { (!$Do || $offset < 8) &&          \
+                               (!$Dw || $width < 8);             \
                              }
+BFCLRm M68020 1110110011 010 Ax:3 0000 Do:1 offset:5 Dw:1 width:5 \
+                !constraints { (!$Do || $offset < 8) &&          \
+                               (!$Dw || $width < 8) &&           \
+                               $Ax != 6 && $Ax != 7;             \
+                             }                                   \
+                !memory { if ($Do) {                             \
+                              write_mov_di($offset, rand(2048) - 1024); \
+                          }                                             \
+                          reg($Ax);                                     \
+                        }
 # bfexts $dx,offset:width,$dy
 BFEXTS M68020 1110101111 000 Dx:3 0 Dy:3 Do:1 offset:5 Dw:1 width:5 \
-                !constraints { if ($Do == 1) { $offset &= 0x7; } \
-                               if ($Dw == 1) { $width &= 0x7; }  \
-                               1;                                \
+                !constraints { (!$Do || $offset < 8) &&          \
+                               (!$Dw || $width < 8);             \
                              }
+BFEXTSm M68020 1110101111 010 Ax:3 0 Dy:3 Do:1 offset:5 Dw:1 width:5 \
+                !constraints { (!$Do || $offset < 8) &&          \
+                               (!$Dw || $width < 8) &&           \
+                               $Ax != 6 && $Ax != 7;             \
+                             }                                   \
+                !memory { if ($Do) {                             \
+                              write_mov_di($offset, rand(2048) - 1024); \
+                          }                                             \
+                          reg($Ax);                                     \
+                        }
 # bfextu $dx,offset:width,$dy
 BFEXTU M68020 1110100111 000 Dx:3 0 Dy:3 Do:1 offset:5 Dw:1 width:5 \
-                !constraints { if ($Do == 1) { $offset &= 0x7; } \
-                               if ($Dw == 1) { $width &= 0x7; }  \
-                               1;                                \
+                !constraints { (!$Do || $offset < 8) &&          \
+                               (!$Dw || $width < 8);             \
                              }
+BFEXTUm M68020 1110100111 010 Ax:3 0 Dy:3 Do:1 offset:5 Dw:1 width:5 \
+                !constraints { (!$Do || $offset < 8) &&          \
+                               (!$Dw || $width < 8) &&           \
+                               $Ax != 6 && $Ax != 7;             \
+                             }                                   \
+                !memory { if ($Do) {                             \
+                              write_mov_di($offset, rand(2048) - 1024); \
+                          }                                             \
+                          reg($Ax);                                     \
+                        }
 # bfffo $dx,offset:width,$dy
-# there is a bug in 68040 with offset > 31
+# there is a bug in 68040 with D(offset) > 31
 BFFFO M68020 1110110111 000 Dx:3 0 Dy:3 Do:1 offset:5 Dw:1 width:5    \
                 !constraints {                                        \
                                if ($Dw == 1) { $width &= 0x7; ;}      \
@@ -87,30 +137,80 @@ BFFFO M68020 1110110111 000 Dx:3 0 Dy:3 Do:1 offset:5 Dw:1 width:5    \
                                }                                      \
                                1;                                     \
                              }
+BFFFOm M68020 1110110111 010 Ax:3 0 Dy:3 Do:1 offset:5 Dw:1 width:5    \
+                !constraints { (!$Do || $offset < 8) &&          \
+                               (!$Dw || $width < 8) &&           \
+                               $Ax != 6 && $Ax != 7;             \
+                             }                                   \
+                !memory { if ($Do) {                             \
+                              write_mov_di($offset, rand(2048) - 1024); \
+                          }                                             \
+                          reg($Ax);                                     \
+                        }
 # bfins $dx,offset:width,$dy
 BFINS M68020 1110111111 000 Dx:3 0 Dy:3 Do:1 offset:5 Dw:1 width:5 \
-                !constraints { if ($Do == 1) { $offset &= 0x7; } \
-                               if ($Dw == 1) { $width &= 0x7; }  \
-                               1;                                \
+                !constraints { (!$Do || $offset < 8) &&          \
+                               (!$Dw || $width < 8);             \
                              }
+BFINSm M68020 1110111111 010 Ax:3 0 Dy:3 Do:1 offset:5 Dw:1 width:5 \
+                !constraints { (!$Do || $offset < 8) &&          \
+                               (!$Dw || $width < 8) &&           \
+                               $Ax != 6 && $Ax != 7;             \
+                             }                                   \
+                !memory { if ($Do) {                             \
+                              write_mov_di($offset, rand(2048) - 1024); \
+                          }                                             \
+                          reg($Ax);                                     \
+                        }
 # bfset $dx,offset:width
 BFSET M68020 1110111011 000 Dx:3 0000 Do:1 offset:5 Dw:1 width:5 \
-                !constraints { if ($Do == 1) { $offset &= 0x7; } \
-                               if ($Dw == 1) { $width &= 0x7; }  \
-                               1;                                \
+                !constraints { (!$Do || $offset < 8) &&          \
+                               (!$Dw || $width < 8);             \
                              }
+BFSETm M68020 1110111011 010 Ax:3 0000 Do:1 offset:5 Dw:1 width:5 \
+                !constraints { (!$Do || $offset < 8) &&          \
+                               (!$Dw || $width < 8) &&           \
+                               $Ax != 6 && $Ax != 7;             \
+                             }                                   \
+                !memory { if ($Do) {                             \
+                              write_mov_di($offset, rand(2048) - 1024); \
+                          }                                             \
+                          reg($Ax);                                     \
+                        }
 # bftst $dx,offset:width
 BFTST M68020 1110100011 000 Dx:3 0000 Do:1 offset:5 Dw:1 width:5 \
-                !constraints { if ($Do == 1) { $offset &= 0x7; } \
-                               if ($Dw == 1) { $width &= 0x7; }  \
-                               1;                                \
+                !constraints { (!$Do || $offset < 8) &&          \
+                               (!$Dw || $width < 8);             \
                              }
+BFTSTm M68020 1110100011 010 Ax:3 0000 Do:1 offset:5 Dw:1 width:5 \
+                !constraints { (!$Do || $offset < 8) &&          \
+                               (!$Dw || $width < 8) &&           \
+                               $Ax != 6 && $Ax != 7;             \
+                             }                                   \
+                !constraints { if ($Do == 1) {                    \
+                                   $offset &= 0x7;                \
+                                   write_mov_di($offset, rand(2048) - 1024); \
+                               }                                 \
+                               if ($Dw == 1) { $width &= 0x7; }  \
+                               $Ax != 6 && $Ax != 7;             \
+                             }                                   \
+                !memory { reg($Ax); }
 # bset $dx,$dy
 BSET  M68000 0000 Dx:3 111 000 Dy:3
 BSETI M68000 0000 100  011 000 Dx:3 0000000 data:9
 # btst $dx,$dy
 BTST  M68000 0000 Dx:3 100 000 Dy:3
 BTSTI M68000 0000 100  000 000 Dx:3 0000000 data:9
+# cas $dc,$du,($ax)
+CAS   M68020 00001 size:2 011 010 Ax:3 0000000 Du:3 000 Dc:3 \
+                 !constraints { $Ax != 6 && $Ax != 7 && $size != 0b00; } \
+                 !memory { reg($Ax); }
+CAS2  M68020 00001 size:2 011111100 \
+                 !memory { reg(0); reg(1); } \
+                 !constraints { $size == 0b10 || $size == 0b11; } \
+                 !post { insn16(0x8000 | (rand(8) << 6) | rand(8)); \
+                         insn16(0x9000 | (rand(8) << 6) | rand(8)); \
+                       }
 # clr $dx
 CLR   M68000 01000010 size:2 000 Dx:3 \
                  !constraints { $size != 0b11; }
@@ -125,6 +225,11 @@ CMPIB M68000 00001100 00 000 Dx:3 00000000 data:8
 CMPIW M68000 00001100 01 000 Dx:3 data:16
 CMPIL M68000 00001100 10 000 Dx:3 \
                  !post { insn32(rand(0xffffffff)); }
+# cmpm ($ay)+,$(ax)+
+CMPM  M68000 1011 Ax:3 1 size:2 001 Ay:3         \
+                 !constraints { $size != 0b11 && $Ax != 6 && \
+                                $Ax != 7 && $Ay != 6 && $Ay != 7; } \
+                 !memory { reg($Ax); reg($Ay); }
 # divs $dx,$dy
 DIVS  M68000 1000 Dy:3 111 000 Dx:3 \
                  !constraints { \
@@ -207,6 +312,12 @@ MOVEA M68000 00 size:2 Ay:3 001 000 Dx:3 \
 MOVEFROMCCR  M68010 0100001011 000 Dx:3
 # move $dx,ccr
 MOVETOCCR M68000 0100010011 000 Dx:3
+# movem list,($ax) movem ($ax),list
+MOVEM     M68000 01001 dir:1 001 size:1 010 Ax:3 list:16 \
+                 !constraints { $Ax != 6 && $Ax != 7 &&  \
+                                !($list & (0xc000 | (1 << ($Ax + 8)))); } \
+                 !memory { reg($Ax); }
+
 # moveq #Imm8, $dx
 MOVEQ M68000 0111 Dx:3 0 data:8
 # muls $dx,$dy
